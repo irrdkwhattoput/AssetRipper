@@ -1,6 +1,6 @@
 using AsmResolver.DotNet;
-using AssetRipper.Import.Structure.Assembly.Serializable;
 using AssetRipper.Import.Structure.Platforms;
+using AssetRipper.SerializationLogic;
 
 namespace AssetRipper.Import.Structure.Assembly.Managers
 {
@@ -27,6 +27,9 @@ namespace AssetRipper.Import.Structure.Assembly.Managers
 
 		bool IsSet { get; }
 		ScriptingBackend ScriptingBackend { get; }
+
+		public sealed AssemblyDefinition? Mscorlib => GetAssemblies().FirstOrDefault(a => a.Name == "mscorlib");
+		public sealed bool HasMscorlib2 => Mscorlib?.Version.Major == 2;
 	}
 	public static class AssemblyManagerExtensions
 	{

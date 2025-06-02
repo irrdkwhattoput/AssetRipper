@@ -4,15 +4,16 @@ using AssetRipper.Assets.IO;
 using AssetRipper.Assets.Metadata;
 using AssetRipper.Import.Logging;
 using AssetRipper.Import.Structure.Assembly.Managers;
-using AssetRipper.Import.Structure.Assembly.Mono;
 using AssetRipper.Import.Structure.Assembly.Serializable;
 using AssetRipper.Import.Structure.Assembly.TypeTrees;
 using AssetRipper.IO.Endian;
 using AssetRipper.IO.Files;
 using AssetRipper.IO.Files.SerializedFiles.Parser;
+using AssetRipper.SerializationLogic;
 using AssetRipper.SourceGenerated;
 using AssetRipper.SourceGenerated.Classes.ClassID_114;
 using AssetRipper.SourceGenerated.Classes.ClassID_28;
+using AssetRipper.SourceGenerated.Classes.ClassID_48;
 using AssetRipper.SourceGenerated.Subclasses.AABB;
 using AssetRipper.SourceGenerated.Subclasses.AABBInt;
 using AssetRipper.SourceGenerated.Subclasses.AnimationCurve_Single;
@@ -74,7 +75,12 @@ namespace AssetRipper.Import.AssetCreation
 				if (type is not null && TypeTreeNodeStruct.TryMakeFromTypeTree(type.OldType, out TypeTreeNodeStruct rootNode))
 				{
 					structure = SerializableTreeType.FromRootNode(rootNode, true).CreateSerializableStructure();
-					if (structure.TryRead(ref reader, monoBehaviour))
+					if (structure.Type.Fields.Count > 0 && structure.Type.Fields[^1] is { Type.Name: "ManagedReferencesRegistry", Name: "references" })
+					{
+						Logger.Error(LogCategory.Import, $"MonoBehaviour has a field with the [SerializeReference] attribute, which is not currently supported.");
+						monoBehaviour.Structure = null;
+					}
+					else if (structure.TryRead(ref reader, monoBehaviour))
 					{
 						monoBehaviour.Structure = structure;
 					}
@@ -104,7 +110,14 @@ namespace AssetRipper.Import.AssetCreation
 			}
 			else if (SpecialFileNames.IsDefaultResourceOrBuiltinExtra(assetInfo.Collection.Name))
 			{
-				Logger.Warning(LogCategory.Import, error);
+				if (asset is IShader)
+				{
+					Logger.Info(LogCategory.Import, $"Shader with PathID {asset.PathID} in {assetInfo.Collection.Name} uses engine type trees.");
+				}
+				else
+				{
+					Logger.Warning(LogCategory.Import, error);
+				}
 				return asset;
 			}
 			else if (assetInfo.Collection.Version.Type == UnityVersionType.Patch)

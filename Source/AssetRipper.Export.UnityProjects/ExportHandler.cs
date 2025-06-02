@@ -72,7 +72,12 @@ public class ExportHandler
 		{
 			yield return new NullableRemovalProcessor();
 		}
+		if (Settings.ProcessingSettings.PublicizeAssemblies)
+		{
+			yield return new SafeAssemblyPublicizingProcessor();
+		}
 		yield return new RemoveAssemblyKeyFileAttributeProcessor();
+		yield return new InternalsVisibileToPublicKeyRemover();
 
 		yield return new SceneDefinitionProcessor();
 		yield return new MainAssetProcessor();
@@ -86,7 +91,8 @@ public class ExportHandler
 		yield return new ScriptableObjectProcessor();
 	}
 
-	public void Export(GameData gameData, string outputPath)
+	public void Export(GameData gameData, string outputPath) => Export(gameData, outputPath, LocalFileSystem.Instance);
+	public void Export(GameData gameData, string outputPath, FileSystem fileSystem)
 	{
 		Logger.Info(LogCategory.Export, "Starting export");
 		Logger.Info(LogCategory.Export, $"Attempting to export assets to {outputPath}...");
@@ -94,18 +100,18 @@ public class ExportHandler
 		Logger.Info(LogCategory.Export, $"Exporting to Unity version {gameData.ProjectVersion}");
 
 		Settings.ExportRootPath = outputPath;
-		Settings.SetProjectSettings(gameData.ProjectVersion, BuildTarget.NoTarget, TransferInstructionFlags.NoTransferInstructionFlags);
+		Settings.SetProjectSettings(gameData.ProjectVersion);
 
 		ProjectExporter projectExporter = new(Settings, gameData.AssemblyManager);
 		BeforeExport(projectExporter);
 		projectExporter.DoFinalOverrides(Settings);
-		projectExporter.Export(gameData.GameBundle, Settings, LocalFileSystem.Instance);
+		projectExporter.Export(gameData.GameBundle, Settings, fileSystem);
 
 		Logger.Info(LogCategory.Export, "Finished exporting assets");
 
 		foreach (IPostExporter postExporter in GetPostExporters())
 		{
-			postExporter.DoPostExport(gameData, Settings, LocalFileSystem.Instance);
+			postExporter.DoPostExport(gameData, Settings, fileSystem);
 		}
 		Logger.Info(LogCategory.Export, "Finished post-export");
 

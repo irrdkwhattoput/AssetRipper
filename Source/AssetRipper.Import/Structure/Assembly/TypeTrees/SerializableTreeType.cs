@@ -1,6 +1,6 @@
-﻿using AssetRipper.Import.Structure.Assembly.Mono;
-using AssetRipper.Import.Structure.Assembly.Serializable;
+﻿using AssetRipper.SerializationLogic;
 using AssetRipper.SourceGenerated.Extensions;
+using System.Diagnostics;
 
 namespace AssetRipper.Import.Structure.Assembly.TypeTrees
 {
@@ -17,7 +17,12 @@ namespace AssetRipper.Import.Structure.Assembly.TypeTrees
 
 		public static SerializableTreeType FromRootNode(TypeTreeNodeStruct rootNode, bool monoBehaviourStructure = false)
 		{
-			SerializableTreeType serializableTreeType = new SerializableTreeType(rootNode.TypeName, PrimitiveType.Complex, rootNode.Version, rootNode.FlowMappedInYaml);
+			ToPrimititeType(rootNode, out string typeName, out PrimitiveType primitiveType, out int arrayDepth, out _, out TypeTreeNodeStruct primitiveNode);
+			Debug.Assert(arrayDepth == 0, "Array depth should be 0 for root node");
+			Debug.Assert(primitiveNode == rootNode, "Primitive node should be the same as root node");
+			Debug.Assert(!monoBehaviourStructure || primitiveType is PrimitiveType.Complex, "MonoBehaviour structure should be complex type");
+
+			SerializableTreeType serializableTreeType = new SerializableTreeType(typeName, primitiveType, rootNode.Version, rootNode.FlowMappedInYaml);
 
 			List<Field> fields = new();
 			int startIndex = monoBehaviourStructure ? FindStartingIndexForMonoBehaviour(rootNode) : 0;
@@ -26,6 +31,7 @@ namespace AssetRipper.Import.Structure.Assembly.TypeTrees
 				AddNode(rootNode.SubNodes[i], fields);
 			}
 			serializableTreeType.Fields = fields;
+			serializableTreeType.SetMaxDepth();
 			return serializableTreeType;
 		}
 
@@ -47,7 +53,10 @@ namespace AssetRipper.Import.Structure.Assembly.TypeTrees
 			}
 			else
 			{
-				serializableType = new SerializableTreeType(typeName, primitiveType, primitiveNode.Version, primitiveNode.FlowMappedInYaml);
+				serializableType = new SerializableTreeType(typeName, primitiveType, primitiveNode.Version, primitiveNode.FlowMappedInYaml)
+				{
+					MaxDepth = 0
+				};
 			}
 
 			fields.Add(new Field(serializableType, arrayDepth, node.Name, alignBytes));
@@ -62,6 +71,7 @@ namespace AssetRipper.Import.Structure.Assembly.TypeTrees
 				AddNode(subNode, fields);
 			}
 			serializableTreeType.Fields = fields;
+			serializableTreeType.SetMaxDepth();
 			return serializableTreeType;
 		}
 
@@ -130,7 +140,6 @@ namespace AssetRipper.Import.Structure.Assembly.TypeTrees
 					"UInt64" or "FileSize" or "unsigned long long" => PrimitiveType.ULong,
 					"float" => PrimitiveType.Single,
 					"double" => PrimitiveType.Double,
-					"half" => PrimitiveType.Half,
 					_ => PrimitiveType.Complex,
 				}
 				: false switch
@@ -148,6 +157,17 @@ namespace AssetRipper.Import.Structure.Assembly.TypeTrees
 					local = value;
 				}
 			}
+		}
+
+		private void SetMaxDepth()
+		{
+			int maxDepth = 0;
+			foreach (Field field in Fields)
+			{
+				Debug.Assert(field.Type.IsMaxDepthKnown, "The depth of this type is not known.");
+				maxDepth = Math.Max(maxDepth, field.Type.MaxDepth + 1);
+			}
+			MaxDepth = maxDepth;
 		}
 	}
 }

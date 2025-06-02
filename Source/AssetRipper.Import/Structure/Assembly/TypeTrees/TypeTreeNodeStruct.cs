@@ -1,6 +1,6 @@
-﻿using AssetRipper.Import.Structure.Assembly.Serializable;
-using AssetRipper.IO.Files.SerializedFiles;
+﻿using AssetRipper.IO.Files.SerializedFiles;
 using AssetRipper.IO.Files.SerializedFiles.Parser.TypeTrees;
+using AssetRipper.SerializationLogic;
 using AssetRipper.SourceGenerated;
 using AssetRipper.Tpk;
 using AssetRipper.Tpk.Shared;
@@ -12,13 +12,13 @@ namespace AssetRipper.Import.Structure.Assembly.TypeTrees;
 
 public readonly struct TypeTreeNodeStruct : IReadOnlyList<TypeTreeNodeStruct>, IEquatable<TypeTreeNodeStruct>
 {
-	private static TpkTypeTreeBlob? _typeTreeBlob;
+	[field: MaybeNull]
 	private static TpkTypeTreeBlob TypeTreeBlob
 	{
 		get
 		{
-			_typeTreeBlob ??= (TpkTypeTreeBlob)TpkFile.FromStream(SourceTpk.GetStream()).GetDataBlob();
-			return _typeTreeBlob;
+			field ??= (TpkTypeTreeBlob)TpkFile.FromStream(SourceTpk.GetStream()).GetDataBlob();
+			return field;
 		}
 	}
 
@@ -360,10 +360,15 @@ public readonly struct TypeTreeNodeStruct : IReadOnlyList<TypeTreeNodeStruct>, I
 		{
 			metaFlag |= TransferMetaFlags.TransferUsingFlowMappingStyle;
 		}
+		if (type.Type is PrimitiveType.Char)
+		{
+			metaFlag |= TransferMetaFlags.CharPropertyMask;
+		}
 
 		string typeName = type.Type switch
 		{
 			PrimitiveType.Bool => "bool",
+			PrimitiveType.Char => "UInt16",
 			PrimitiveType.Byte => "UInt8",
 			PrimitiveType.SByte => "SInt8",
 			PrimitiveType.Short => "SInt16",
